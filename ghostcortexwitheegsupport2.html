@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holonomic Neural Cortex with Spiking Neural Network</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+            color: #00ffaa;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-overlay {
+            position: relative;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #controls, #info, #title, #snn-panel {
+            position: absolute;
+            pointer-events: auto;
+            background: rgba(0, 20, 40, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid #00ffaa;
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        #controls {
+            top: 20px;
+            left: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 170, 0.3);
+            min-width: 320px;
+        }
+        
+        #title {
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 255, 170, 0.8);
+            letter-spacing: 2px;
+            text-align: right;
+            background: none;
+            border: none;
+            backdrop-filter: none;
+        }
+        
+        #info {
+            bottom: 20px;
+            right: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.2);
+        }
+
+        #snn-panel {
+            bottom: 20px;
+            left: 20px;
+            min-width: 320px;
+            border-color: #ff6600;
+            box-shadow: 0 0 20px rgba(255, 102, 0, 0.3);
+        }
+
+        .control-group { 
+            margin-bottom: 15px; 
+        }
+        
+        .control-group label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-size: 12px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+        }
+        
+        .file-input-wrapper { 
+            margin-bottom: 15px; 
+        }
+        
+        .file-input { 
+            width: 100%; 
+            padding: 10px; 
+            background: rgba(0, 0, 0, 0.5); 
+            border: 2px dashed #00ffaa; 
+            color: #00ffaa; 
+            border-radius: 8px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+        }
+        
+        .file-input:hover { 
+            background: rgba(0, 255, 170, 0.1); 
+        }
+        
+        input[type="range"] { 
+            -webkit-appearance: none; 
+            appearance: none; 
+            width: 100%; 
+            height: 5px; 
+            background: #333; 
+            outline: none; 
+            border-radius: 5px; 
+        }
+        
+        input[type="range"]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            appearance: none; 
+            width: 15px; 
+            height: 15px; 
+            background: #00ffaa; 
+            cursor: pointer; 
+            border-radius: 50%; 
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.7); 
+        }
+        
+        select { 
+            width: 100%; 
+            padding: 8px; 
+            background: rgba(0, 0, 0, 0.7); 
+            border: 1px solid #00ffaa; 
+            color: #00ffaa; 
+            border-radius: 5px; 
+            font-family: inherit; 
+        }
+        
+        button { 
+            background: linear-gradient(45deg, #00aa77, #00ffaa); 
+            border: none; 
+            color: black; 
+            padding: 10px 20px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            transition: all 0.3s ease; 
+            margin: 5px; 
+        }
+        
+        button:hover { 
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.8); 
+            transform: translateY(-2px); 
+        }
+        
+        .snn-button {
+            background: linear-gradient(45deg, #cc4400, #ff6600);
+            color: white;
+        }
+        
+        .snn-button:hover {
+            box-shadow: 0 0 20px rgba(255, 102, 0, 0.8);
+        }
+        
+        .stats { 
+            font-size: 11px; 
+            margin: 2px 0; 
+        }
+
+        .snn-stats {
+            color: #ff9944;
+            font-size: 10px;
+            margin: 1px 0;
+        }
+
+        #spike-canvas {
+            width: 280px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #ff6600;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="canvas-container"></div>
+
+    <div id="ui-overlay">
+        <div id="title">
+            <div>NEURAL CORTEX PROJECTOR</div>
+            <div id="subtitle" style="font-size: 14px; margin-top: 5px;">(Simulation Mode)</div>
+            <div style="font-size: 12px; margin-top: 5px; color: #ff9944;">+ Spiking Neural Network</div>
+        </div>
+        
+        <div id="controls">
+            <h3 style="margin-bottom: 15px; text-align: center;">HOLONOMIC CONTROLS</h3>
+            <div class="file-input-wrapper">
+                <div class="file-input" onclick="document.getElementById('fileInput').click()">
+                    <span id="fileInputLabel">📂 Load Real EEG File</span>
+                </div>
+                <input type="file" id="fileInput" style="display: none;" accept=".edf">
+            </div>
+             <div class="control-group">
+                <label>Data Source</label>
+                <select id="dataSource">
+                    <option value="simulation">Simulation</option>
+                    <option value="real_eeg" disabled>Real EEG Data</option>
+                </select>
+            </div>
+            <div class="control-group" id="channelSelectGroup" style="display: none;">
+                <label>EEG Channel</label>
+                <select id="eegChannel"></select>
+            </div>
+            <div class="control-group">
+                <label>Wave Propagation Speed</label>
+                <input type="range" id="waveSpeed" min="0.1" max="5.0" step="0.1" value="1.0">
+            </div>
+            <div class="control-group">
+                <label>Neural Excitation</label>
+                <input type="range" id="excitation" min="0.01" max="0.1" step="0.01" value="0.03">
+            </div>
+            <div class="control-group">
+                <label>Decay Rate</label>
+                <input type="range" id="decay" min="0.9" max="0.999" step="0.001" value="0.995">
+            </div>
+            <div class="control-group">
+                <label>Visualization Mode</label>
+                <select id="vizMode">
+                    <option value="waves">Neural Waves</option>
+                    <option value="particles">Quantum Particles</option>
+                    <option value="fields">Field Lines</option>
+                    <option value="cortex">Ghost Cortex</option>
+                    <option value="snn">SNN Integration</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Frequency Band</label>
+                <select id="freqBand">
+                    <option value="theta-gamma">Theta-Gamma</option>
+                    <option value="alpha-beta">Alpha-Beta</option>
+                    <option value="delta-theta">Delta-Theta</option>
+                    <option value="beta-gamma">Beta-Gamma</option>
+                </select>
+            </div>
+            <button onclick="toggleSimulation()">START/STOP</button>
+            <button onclick="resetSimulation()">RESET</button>
+        </div>
+
+        <div id="snn-panel">
+            <h3 style="margin-bottom: 15px; text-align: center; color: #ff9944;">SPIKING NEURAL NETWORK</h3>
+            <div class="control-group">
+                <label style="color: #ff9944;">SNN Population Size</label>
+                <select id="snnSize">
+                    <option value="512">512 Neurons</option>
+                    <option value="1024" selected>1024 Neurons</option>
+                    <option value="2048">2048 Neurons</option>
+                    <option value="4096">4096 Neurons</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label style="color: #ff9944;">Learning Rate (STDP)</label>
+                <input type="range" id="learningRate" min="0.001" max="0.1" step="0.001" value="0.01">
+                <span id="learningRateValue">0.01</span>
+            </div>
+            <div class="control-group">
+                <label style="color: #ff9944;">Synaptic Plasticity</label>
+                <select id="plasticityMode">
+                    <option value="stdp">STDP (Hebbian)</option>
+                    <option value="anti-stdp">Anti-STDP</option>
+                    <option value="homeostatic">Homeostatic</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label style="color: #ff9944;">Field Coupling Strength</label>
+                <input type="range" id="fieldCoupling" min="0" max="50" step="1" value="20">
+                <span id="fieldCouplingValue">20</span>
+            </div>
+            <canvas id="spike-canvas"></canvas>
+            <div class="snn-stats">Spike Rate: <span id="spikeRate">0.0</span> Hz</div>
+            <div class="snn-stats">Active Synapses: <span id="activeSynapses">0</span></div>
+            <div class="snn-stats">Avg Weight: <span id="avgWeight">0.50</span></div>
+            <div class="snn-stats">Network Coherence: <span id="coherence">0.0</span>%</div>
+            <button class="snn-button" onclick="resetSNN()">RESET SNN</button>
+            <button class="snn-button" onclick="saveSNNWeights()">SAVE WEIGHTS</button>
+        </div>
+        
+        <div id="info">
+            <div class="stats" id="status-line">Status: Ready</div>
+            <div class="stats">Neural Activity: <span id="activity">0.0</span>%</div>
+            <div class="stats">Wave Frequency: <span id="frequency">8.5</span> Hz</div>
+            <div class="stats">Active Neurons: <span id="neurons">0</span></div>
+            <div class="stats">Field Strength: <span id="fieldStrength">0.0</span></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Scope ---
+        let scene, camera, renderer, animationId;
+        let neuralField = [], ghostCortex = [], waveParticles = [];
+        let isRunning = false, time = 0, eegData = null, eegTime = 0;
+        
+        // SNN Components
+        let spikingNeurons = [], synapses = [], spikeHistory = [];
+        let snnInitialized = false, spikeCanvas, spikeCtx;
+        let lastSpikeCount = 0, coherenceBuffer = [];
+        
+        const gridSize = 32, gridExtent = 0.15, numParticles = 8000;
+        const bands = {
+            'theta-gamma': { slow: {low: 4, high: 8}, fast: {low: 30, high: 50} },
+            'alpha-beta': { slow: {low: 8, high: 13}, fast: {low: 13, high: 30} },
+            'delta-theta': { slow: {low: 1, high: 4}, fast: {low: 4, high: 8} },
+            'beta-gamma': { slow: {low: 13, high: 30}, fast: {low: 30, high: 50} }
+        };
+
+        // --- Spiking Neural Network Implementation ---
+        class LIFNeuron {
+            constructor(id, x, y, z) {
+                this.id = id;
+                this.position = new THREE.Vector3(x, y, z);
+                this.v = -65.0; // membrane potential (mV)
+                this.threshold = -50.0;
+                this.reset = -65.0;
+                this.tau = 10.0; // membrane time constant (ms)
+                this.refractoryTime = 2.0; // ms
+                this.refractoryCounter = 0;
+                this.inputCurrent = 0;
+                this.spiked = false;
+                this.lastSpikeTime = -1000;
+                this.trace = 0; // for STDP
+                this.traceDecay = 0.95;
+            }
+
+            update(dt, fieldStrength) {
+                this.spiked = false;
+                
+                if (this.refractoryCounter > 0) {
+                    this.refractoryCounter -= dt;
+                    this.v = this.reset;
+                    return;
+                }
+
+                // Convert field strength to input current
+                const fieldCoupling = parseFloat(document.getElementById('fieldCoupling').value);
+                this.inputCurrent = fieldStrength * fieldCoupling;
+                
+                // LIF dynamics
+                const leak = (-this.v - (-65.0)) / this.tau;
+                this.v += dt * (leak + this.inputCurrent);
+                
+                // Check for spike
+                if (this.v > this.threshold) {
+                    this.spiked = true;
+                    this.lastSpikeTime = time * 1000; // convert to ms
+                    this.v = this.reset;
+                    this.refractoryCounter = this.refractoryTime;
+                    this.trace = 1.0; // reset trace for STDP
+                } else {
+                    this.trace *= this.traceDecay;
+                }
+            }
+        }
+
+        class Synapse {
+            constructor(preId, postId, weight = 0.5) {
+                this.preId = preId;
+                this.postId = postId;
+                this.weight = Math.max(0, Math.min(1, weight + (Math.random() - 0.5) * 0.1));
+                this.preTrace = 0;
+                this.postTrace = 0;
+                this.traceDecay = 0.95;
+                this.maxWeight = 1.0;
+                this.minWeight = 0.0;
+            }
+
+            updateSTDP(preNeuron, postNeuron) {
+                const learningRate = parseFloat(document.getElementById('learningRate').value);
+                const plasticityMode = document.getElementById('plasticityMode').value;
+                
+                let dw = 0;
+                
+                if (preNeuron.spiked && postNeuron.spiked) {
+                    // Simultaneous spikes - no change
+                    return;
+                }
+                
+                if (preNeuron.spiked) {
+                    // Pre-synaptic spike
+                    if (plasticityMode === 'stdp') {
+                        dw = learningRate * postNeuron.trace; // LTP
+                    } else if (plasticityMode === 'anti-stdp') {
+                        dw = -learningRate * postNeuron.trace; // LTD
+                    }
+                }
+                
+                if (postNeuron.spiked) {
+                    // Post-synaptic spike
+                    if (plasticityMode === 'stdp') {
+                        dw = -learningRate * preNeuron.trace * 0.5; // LTD (asymmetric)
+                    } else if (plasticityMode === 'anti-stdp') {
+                        dw = learningRate * preNeuron.trace * 0.5; // LTP
+                    }
+                }
+                
+                // Homeostatic scaling
+                if (plasticityMode === 'homeostatic') {
+                    const targetRate = 10.0; // target 10 Hz
+                    const postRate = this.estimateRate(postNeuron);
+                    dw = learningRate * (targetRate - postRate) * 0.001 * preNeuron.trace;
+                }
+                
+                this.weight = Math.max(this.minWeight, Math.min(this.maxWeight, this.weight + dw));
+            }
+
+            estimateRate(neuron) {
+                // Simple rate estimation based on recent activity
+                return neuron.trace * 50; // rough approximation
+            }
+        }
+
+        function initializeSNN() {
+            if (snnInitialized) return;
+            
+            const snnSize = parseInt(document.getElementById('snnSize').value);
+            spikingNeurons = [];
+            synapses = [];
+            spikeHistory = [];
+            coherenceBuffer = [];
+            
+            // Create neurons positioned to match the field grid
+            for (let i = 0; i < snnSize; i++) {
+                const x = (Math.random() - 0.5) * gridExtent;
+                const y = (Math.random() - 0.5) * gridExtent;
+                const z = (Math.random() - 0.5) * gridExtent;
+                spikingNeurons.push(new LIFNeuron(i, x, y, z));
+            }
+            
+            // Create synapses (sparse connectivity)
+            const connectionProbability = 0.02;
+            for (let i = 0; i < snnSize; i++) {
+                for (let j = 0; j < snnSize; j++) {
+                    if (i !== j && Math.random() < connectionProbability) {
+                        synapses.push(new Synapse(i, j));
+                    }
+                }
+            }
+            
+            console.log(`Initialized SNN: ${snnSize} neurons, ${synapses.length} synapses`);
+            snnInitialized = true;
+            
+            // Initialize spike visualization canvas
+            spikeCanvas = document.getElementById('spike-canvas');
+            spikeCtx = spikeCanvas.getContext('2d');
+            spikeCanvas.width = 280;
+            spikeCanvas.height = 120;
+        }
+
+        function updateSNN(dt) {
+            if (!snnInitialized) return;
+            
+            // Update neurons based on field strength
+            let spikeCount = 0;
+            spikingNeurons.forEach(neuron => {
+                // Find nearest field voxel
+                let nearestFieldStrength = 0;
+                let minDistance = Infinity;
+                
+                neuralField.forEach(fieldNeuron => {
+                    const distance = neuron.position.distanceTo(fieldNeuron.position);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestFieldStrength = fieldNeuron.activity;
+                    }
+                });
+                
+                neuron.update(dt, nearestFieldStrength);
+                if (neuron.spiked) spikeCount++;
+            });
+            
+            // Update synapses with STDP
+            synapses.forEach(synapse => {
+                const preNeuron = spikingNeurons[synapse.preId];
+                const postNeuron = spikingNeurons[synapse.postId];
+                synapse.updateSTDP(preNeuron, postNeuron);
+                
+                // Apply synaptic transmission
+                if (preNeuron.spiked) {
+                    postNeuron.inputCurrent += synapse.weight * 2.0;
+                }
+            });
+            
+            // Record spike history
+            spikeHistory.push({time: time * 1000, count: spikeCount});
+            if (spikeHistory.length > 1000) spikeHistory.shift();
+            
+            // Calculate network coherence
+            const spikeRate = spikeCount / spikingNeurons.length * 1000; // Hz
+            coherenceBuffer.push(spikeRate);
+            if (coherenceBuffer.length > 60) coherenceBuffer.shift();
+            
+            const meanRate = coherenceBuffer.reduce((a, b) => a + b, 0) / coherenceBuffer.length;
+            const variance = coherenceBuffer.reduce((sum, rate) => sum + Math.pow(rate - meanRate, 2), 0) / coherenceBuffer.length;
+            const coherence = Math.max(0, (1 - Math.sqrt(variance) / (meanRate + 1)) * 100);
+            
+            // Update UI
+            document.getElementById('spikeRate').textContent = spikeRate.toFixed(1);
+            document.getElementById('activeSynapses').textContent = synapses.filter(s => s.weight > 0.1).length;
+            document.getElementById('avgWeight').textContent = (synapses.reduce((sum, s) => sum + s.weight, 0) / synapses.length).toFixed(3);
+            document.getElementById('coherence').textContent = coherence.toFixed(1);
+            
+            updateSpikeVisualization();
+        }
+
+        function updateSpikeVisualization() {
+            if (!spikeCtx) return;
+            
+            spikeCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            spikeCtx.fillRect(0, 0, 280, 120);
+            
+            // Draw spike history
+            spikeCtx.strokeStyle = '#ff6600';
+            spikeCtx.lineWidth = 1;
+            spikeCtx.beginPath();
+            
+            const maxHistory = Math.min(280, spikeHistory.length);
+            for (let i = 0; i < maxHistory; i++) {
+                const spike = spikeHistory[spikeHistory.length - maxHistory + i];
+                const x = (i / maxHistory) * 280;
+                const y = 120 - (spike.count / spikingNeurons.length * 120);
+                
+                if (i === 0) {
+                    spikeCtx.moveTo(x, y);
+                } else {
+                    spikeCtx.lineTo(x, y);
+                }
+            }
+            spikeCtx.stroke();
+            
+            // Draw current spikes as dots
+            spikeCtx.fillStyle = '#ffaa44';
+            spikingNeurons.forEach(neuron => {
+                if (neuron.spiked) {
+                    const x = ((neuron.position.x + gridExtent/2) / gridExtent) * 280;
+                    const y = ((neuron.position.z + gridExtent/2) / gridExtent) * 120;
+                    spikeCtx.beginPath();
+                    spikeCtx.arc(x, y, 2, 0, Math.PI * 2);
+                    spikeCtx.fill();
+                }
+            });
+        }
+
+        // --- Core 3D and Animation ---
+        function init() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 0.1, 1.5);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+            camera.position.set(0.3, 0.3, 0.3);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+            
+            container.appendChild(renderer.domElement);
+            
+            const ambientLight = new THREE.AmbientLight(0x002244, 0.3);
+            scene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0x00ffaa, 1, 2);
+            pointLight.position.set(0, 0.5, 0.5);
+            scene.add(pointLight);
+            
+            initializeNeuralField();
+            initializeGhostCortex();
+            initializeWaveParticles();
+            initializeSNN();
+            setupEventListeners();
+            
+            animate();
+        }
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            if (isRunning) {
+                const dt = 16.67; // ~60fps in ms
+                time += 0.016;
+                simulateNeuralActivity();
+                updateSNN(dt);
+            }
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Simulation Logic (Enhanced) ---
+        function simulateNeuralActivity() {
+            const dataSource = document.getElementById('dataSource').value;
+            if (dataSource === 'real_eeg' && eegData) {
+                simulateFromRealEEG();
+            } else {
+                simulateFromInternalModel();
+            }
+        }
+
+        function simulateFromRealEEG() {
+            if (!eegData || !isRunning) return;
+            const channelIndex = parseInt(document.getElementById('eegChannel').value);
+            const freqBandName = document.getElementById('freqBand').value;
+            const band = bands[freqBandName];
+            const channelData = eegData.data[channelIndex];
+            const sampleRate = eegData.sampleRate;
+            const windowSize = Math.floor(2 * sampleRate);
+            const startSample = Math.floor(eegTime * sampleRate);
+            if (startSample + windowSize > channelData.length) { eegTime = 0; return; }
+
+            const signalChunk = channelData.slice(startSample, startSample + windowSize);
+            const { phase, amplitude } = getPhaseAndAmplitude(signalChunk, band.slow, band.fast, sampleRate);
+            if (!phase || !amplitude) return;
+
+            const maxAmp = Math.max(...amplitude, 1e-9);
+            updateNeuralField((neuron, index) => {
+                const signalIndex = Math.floor((neuron.position.x + gridExtent/2) / gridExtent * (phase.length - 1));
+                const slowPhase = phase[signalIndex];
+                const fastAmplitude = amplitude[signalIndex] / maxAmp;
+                return slowPhase * fastAmplitude;
+            });
+            eegTime += 1 / 60;
+        }
+        
+        function simulateFromInternalModel() {
+            const waveSpeed = parseFloat(document.getElementById('waveSpeed').value);
+            const freqBandName = document.getElementById('freqBand').value;
+            const band = bands[freqBandName];
+            const slowFreq = (band.slow.low + band.slow.high) / 2;
+            const fastFreq = (band.fast.low + band.fast.high) / 2;
+            updateNeuralField((neuron, index) => {
+                const slowPhase = Math.sin(time * slowFreq + neuron.phase);
+                const fastAmplitude = Math.abs(Math.sin(time * fastFreq * waveSpeed));
+                const centerDistance = neuron.position.length();
+                
+                // Add SNN feedback to field if in SNN mode
+                let snnFeedback = 0;
+                if (document.getElementById('vizMode').value === 'snn' && snnInitialized) {
+                    spikingNeurons.forEach(spikeNeuron => {
+                        const distance = neuron.position.distanceTo(spikeNeuron.position);
+                        if (distance < 0.05 && spikeNeuron.spiked) {
+                            snnFeedback += 0.3 * Math.exp(-distance * 20);
+                        }
+                    });
+                }
+                
+                return Math.exp(-centerDistance * 10) * slowPhase * fastAmplitude + snnFeedback;
+            });
+        }
+
+        function updateNeuralField(fieldStrengthFn) {
+            const excitation = parseFloat(document.getElementById('excitation').value);
+            const decay = parseFloat(document.getElementById('decay').value);
+            const vizMode = document.getElementById('vizMode').value;
+            let totalActivity = 0, activeNeurons = 0, maxFieldStrength = 0;
+
+            neuralField.forEach((neuron, index) => {
+                const fieldStrength = fieldStrengthFn(neuron, index);
+                neuron.activity = neuron.activity * decay + fieldStrength * excitation;
+                neuron.activity = Math.max(0, Math.min(1, neuron.activity));
+                
+                if (vizMode === 'waves' || vizMode === 'cortex' || vizMode === 'snn') {
+                    let opacity = Math.max(0, neuron.activity);
+                    let hue = 0.3 - (neuron.activity * 0.3);
+                    
+                    // Modify appearance if SNN mode
+                    if (vizMode === 'snn' && snnInitialized) {
+                        // Show SNN influence on field neurons
+                        spikingNeurons.forEach(spikeNeuron => {
+                            const distance = neuron.position.distanceTo(spikeNeuron.position);
+                            if (distance < 0.03 && spikeNeuron.spiked) {
+                                opacity = Math.min(1, opacity + 0.5);
+                                hue = 0.1; // Orange-red for SNN activity
+                            }
+                        });
+                    }
+                    
+                    neuron.mesh.material.opacity = opacity;
+                    neuron.mesh.material.color.setHSL(hue, 1, 0.5);
+                }
+                totalActivity += neuron.activity;
+                if (neuron.activity > 0.1) activeNeurons++;
+                maxFieldStrength = Math.max(maxFieldStrength, neuron.activity);
+            });
+            
+            // Update ghost cortex with SNN feedback
+            ghostCortex.forEach(neuron => {
+                let nearbyActivity = neuralField.filter(n => n.position.distanceTo(neuron.mesh.position) < 0.03).reduce((sum, n) => sum + n.activity, 0);
+                
+                // Add SNN spike influence
+                if (snnInitialized) {
+                    spikingNeurons.forEach(spikeNeuron => {
+                        const distance = neuron.mesh.position.distanceTo(spikeNeuron.position);
+                        if (distance < 0.04 && spikeNeuron.spiked) {
+                            nearbyActivity += 0.2;
+                        }
+                    });
+                }
+                
+                neuron.activity = neuron.activity * 0.98 + nearbyActivity * 0.02;
+                neuron.mesh.scale.setScalar(1 + neuron.activity * 2);
+                neuron.mesh.material.opacity = Math.min(1, neuron.activity * 2);
+                
+                if (vizMode === 'snn') {
+                    neuron.mesh.material.color.setHSL(0.15, 0.8, 0.6); // Orange tint for SNN mode
+                }
+            });
+            
+            waveParticles.visible = vizMode === 'particles' || vizMode === 'fields';
+            if (waveParticles.visible) {
+                 waveParticles.material.uniforms.time.value = time;
+            }
+            
+            document.getElementById('activity').textContent = (totalActivity / neuralField.length * 100).toFixed(1);
+            const band = bands[document.getElementById('freqBand').value];
+            document.getElementById('frequency').textContent = `${((band.slow.low + band.slow.high) / 2).toFixed(1)} Hz`;
+            document.getElementById('neurons').textContent = activeNeurons;
+            document.getElementById('fieldStrength').textContent = maxFieldStrength.toFixed(2);
+        }
+
+        // --- Event Handlers & UI ---
+        function setupEventListeners() {
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('fileInput').addEventListener('change', handleFileLoad);
+            document.getElementById('dataSource').addEventListener('change', e => {
+                const isRealEEG = e.target.value === 'real_eeg';
+                document.getElementById('channelSelectGroup').style.display = isRealEEG ? 'block' : 'none';
+                document.getElementById('subtitle').textContent = isRealEEG ? '(Real EEG Data)' : '(Simulation Mode)';
+                resetSimulation();
+            });
+
+            // SNN parameter updates
+            document.getElementById('learningRate').addEventListener('input', e => {
+                document.getElementById('learningRateValue').textContent = e.target.value;
+            });
+            
+            document.getElementById('fieldCoupling').addEventListener('input', e => {
+                document.getElementById('fieldCouplingValue').textContent = e.target.value;
+            });
+
+            document.getElementById('snnSize').addEventListener('change', e => {
+                snnInitialized = false;
+                initializeSNN();
+            });
+
+            // Mouse controls
+            let mouseDown = false, mouseX = 0, mouseY = 0;
+            renderer.domElement.addEventListener('mousedown', e => { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
+            renderer.domElement.addEventListener('mouseup', () => { mouseDown = false; });
+            renderer.domElement.addEventListener('mousemove', e => {
+                if (!mouseDown) return;
+                const deltaX = e.clientX - mouseX, deltaY = e.clientY - mouseY;
+                const spherical = new THREE.Spherical().setFromVector3(camera.position);
+                spherical.theta -= deltaX * .01;
+                spherical.phi -= deltaY * .01;
+                spherical.phi = Math.max(.1, Math.min(Math.PI - .1, spherical.phi));
+                camera.position.setFromSpherical(spherical);
+                camera.lookAt(0, 0, 0);
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+        }
+        
+        function toggleSimulation() { 
+            isRunning = !isRunning; 
+            if (!snnInitialized && isRunning) {
+                initializeSNN();
+            }
+        }
+        
+        function resetSimulation() {
+            time = 0; eegTime = 0;
+            neuralField.forEach(n => { n.activity = 0; n.mesh.material.opacity = 0; });
+            ghostCortex.forEach(n => { n.activity = 0; n.mesh.scale.setScalar(1); n.mesh.material.opacity = 0.7; });
+            if (snnInitialized) {
+                spikingNeurons.forEach(n => { n.v = n.reset; n.trace = 0; n.refractoryCounter = 0; });
+                spikeHistory = [];
+                coherenceBuffer = [];
+            }
+        }
+
+        function resetSNN() {
+            snnInitialized = false;
+            spikingNeurons = [];
+            synapses = [];
+            spikeHistory = [];
+            coherenceBuffer = [];
+            initializeSNN();
+        }
+
+        function saveSNNWeights() {
+            if (!snnInitialized) return;
+            
+            const weightData = {
+                neurons: spikingNeurons.length,
+                synapses: synapses.map(s => ({
+                    pre: s.preId,
+                    post: s.postId,
+                    weight: s.weight
+                })),
+                timestamp: new Date().toISOString(),
+                avgWeight: synapses.reduce((sum, s) => sum + s.weight, 0) / synapses.length
+            };
+            
+            const blob = new Blob([JSON.stringify(weightData, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `snn_weights_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            console.log('SNN weights saved:', weightData.avgWeight);
+        }
+        
+        function handleFileLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('status-line').textContent = `Status: Loading ${file.name}...`;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    eegData = parseEDF(e.target.result);
+                    document.getElementById('status-line').textContent = `Status: Loaded ${file.name}`;
+                    document.getElementById('fileInputLabel').textContent = `✅ ${file.name}`;
+                    populateChannelSelector();
+                    document.getElementById('dataSource').querySelector('[value="real_eeg"]').disabled = false;
+                } catch (err) {
+                    document.getElementById('status-line').textContent = `Error: ${err.message}`;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function populateChannelSelector() {
+            const selector = document.getElementById('eegChannel');
+            selector.innerHTML = '';
+            eegData.channels.forEach((channel, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = channel;
+                selector.appendChild(option);
+            });
+        }
+
+        // --- Signal Processing Functions ---
+        function parseEDF(buffer) {
+            const view = new DataView(buffer);
+            const decoder = new TextDecoder('ascii');
+            const header = {
+                version: decoder.decode(buffer.slice(0, 8)).trim(),
+                headerBytes: parseInt(decoder.decode(buffer.slice(184, 192)).trim()),
+                numRecords: parseInt(decoder.decode(buffer.slice(236, 244)).trim()),
+                recordDuration: parseFloat(decoder.decode(buffer.slice(244, 252)).trim()),
+                numChannels: parseInt(decoder.decode(buffer.slice(252, 256)).trim())
+            };
+            const ns = header.numChannels;
+            if (ns <= 0 || ns > 1024) throw new Error("Invalid number of channels.");
+
+            const channelInfo = Array.from({ length: ns }, (_, i) => ({
+                label: decoder.decode(buffer.slice(256 + i * 16, 256 + (i + 1) * 16)).trim(),
+                samplesPerRecord: parseInt(decoder.decode(buffer.slice(256 + ns * 216 + i * 8, 256 + ns * 216 + (i + 1) * 8)).trim()),
+                pMin: parseFloat(decoder.decode(buffer.slice(256 + ns * 104 + i * 8, 256 + ns * 104 + (i + 1) * 8)).trim()),
+                pMax: parseFloat(decoder.decode(buffer.slice(256 + ns * 112 + i * 8, 256 + ns * 112 + (i + 1) * 8)).trim()),
+                dMin: parseInt(decoder.decode(buffer.slice(256 + ns * 120 + i * 8, 256 + ns * 120 + (i + 1) * 8)).trim()),
+                dMax: parseInt(decoder.decode(buffer.slice(256 + ns * 128 + i * 8, 256 + ns * 128 + (i + 1) * 8)).trim())
+            }));
+            const sampleRate = channelInfo[0].samplesPerRecord / header.recordDuration;
+            const totalSamples = header.numRecords * channelInfo[0].samplesPerRecord;
+            const data = channelInfo.map(() => new Float32Array(totalSamples));
+            let dataOffset = header.headerBytes;
+
+            for (let r = 0; r < header.numRecords; r++) {
+                for (let ch = 0; ch < ns; ch++) {
+                    const info = channelInfo[ch];
+                    const scale = (info.pMax - info.pMin) / (info.dMax - info.dMin);
+                    if (!isFinite(scale)) continue;
+                    const dc = info.pMin - scale * info.dMin;
+                    const startIdx = r * info.samplesPerRecord;
+                    let channelOffset = dataOffset;
+                    for (let prevCh = 0; prevCh < ch; prevCh++) {
+                        channelOffset += channelInfo[prevCh].samplesPerRecord * 2;
+                    }
+                    for (let s = 0; s < info.samplesPerRecord; s++) {
+                        data[ch][startIdx + s] = view.getInt16(channelOffset + s * 2, true) * scale + dc;
+                    }
+                }
+                dataOffset += channelInfo.reduce((sum, ch) => sum + ch.samplesPerRecord * 2, 0);
+            }
+            return { channels: channelInfo.map(c => c.label), sampleRate, data };
+        }
+        
+        function iirFilter(data, cutoff, type = 'low') {
+            const rc = 1.0 / (2.0 * Math.PI * cutoff);
+            const alpha = 1.0 / (1.0 + rc);
+            const filtered = new Float32Array(data.length);
+            let last = 0;
+            for (let i = 0; i < data.length; i++) {
+                last += alpha * (data[i] - last);
+                filtered[i] = last;
+            }
+            if (type === 'high') { for (let i = 0; i < data.length; i++) { filtered[i] = data[i] - filtered[i]; } }
+            return filtered;
+        }
+        
+        function butterworthBandpass(data, low, high, sampleRate) {
+            const lowpass = iirFilter(data, high / (sampleRate / 2));
+            return iirFilter(lowpass, low / (sampleRate / 2), 'high');
+        }
+        
+        function getPhaseAndAmplitude(signal, phaseBand, ampBand, sampleRate) {
+            const phaseFiltered = butterworthBandpass(signal, phaseBand.low, phaseBand.high, sampleRate);
+            const ampFiltered = butterworthBandpass(signal, ampBand.low, ampBand.high, sampleRate);
+            const n = signal.length;
+            const phase = new Float32Array(n);
+            const ampEnvelope = new Float32Array(n);
+            for (let i = 1; i < n - 1; i++) {
+                const imag_phase = (phaseFiltered[i + 1] - phaseFiltered[i - 1]) / 2;
+                phase[i] = Math.atan2(imag_phase, phaseFiltered[i]);
+                const imag_amp = (ampFiltered[i + 1] - ampFiltered[i - 1]) / 2;
+                ampEnvelope[i] = Math.sqrt(ampFiltered[i] * ampFiltered[i] + imag_amp * imag_amp);
+            }
+            return { phase, amplitude: iirFilter(ampEnvelope, 10 / (sampleRate / 2)) };
+        }
+
+        // --- Object Initialization ---
+        function initializeNeuralField() {
+            const geometry = new THREE.SphereGeometry(0.002, 8, 6);
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    for (let k = 0; k < gridSize; k++) {
+                        const x = (i / (gridSize - 1) - 0.5) * gridExtent;
+                        const y = (j / (gridSize - 1) - 0.5) * gridExtent;
+                        const z = (k / (gridSize - 1) - 0.5) * gridExtent;
+                        const material = new THREE.MeshPhongMaterial({
+                            color: 0x00ffaa,
+                            transparent: true,
+                            opacity: 0
+                        });
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.position.set(x, y, z);
+                        scene.add(mesh);
+                        neuralField.push({
+                            mesh: mesh,
+                            position: new THREE.Vector3(x, y, z),
+                            activity: 0,
+                            phase: Math.random() * Math.PI * 2
+                        });
+                    }
+                }
+            }
+        }
+        
+        function initializeGhostCortex() {
+            const cortexGeometry = new THREE.SphereGeometry(0.06, 32, 32);
+            const cortexMaterial = new THREE.MeshPhongMaterial({
+                color: 0x0044aa,
+                transparent: true,
+                opacity: 0.1,
+                wireframe: true
+            });
+            const cortexMesh = new THREE.Mesh(cortexGeometry, cortexMaterial);
+            scene.add(cortexMesh);
+
+            for (let i = 0; i < 200; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                const r = 0.04 + Math.random() * 0.04;
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+                const neuronGeometry = new THREE.SphereGeometry(0.001, 6, 6);
+                const neuronMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x00aaff,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const neuron = new THREE.Mesh(neuronGeometry, neuronMaterial);
+                neuron.position.set(x, y, z);
+                scene.add(neuron);
+                ghostCortex.push({
+                    mesh: neuron,
+                    activity: 0,
+                    connections: []
+                });
+            }
+        }
+        
+        function initializeWaveParticles() {
+            const particleGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(numParticles * 3);
+            const colors = new Float32Array(numParticles * 3);
+            const sizes = new Float32Array(numParticles);
+
+            for (let i = 0; i < numParticles; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 0.3;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 0.3;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+                colors[i * 3] = 0;
+                colors[i * 3 + 1] = 1;
+                colors[i * 3 + 2] = 0.7;
+                sizes[i] = Math.random() * 2 + 1;
+            }
+
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const particleMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 }
+                },
+                vertexShader: `
+                    attribute float size;
+                    varying vec3 vColor;
+                    uniform float time;
+                    void main() {
+                        vColor = color;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (300.0 / -mvPosition.z) * (1.0 + 0.5 * sin(time * 10.0 + position.x * 50.0));
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    void main() {
+                        float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                        float alpha = 1.0 - smoothstep(0.0, 0.5, distanceToCenter);
+                        gl_FragColor = vec4(vColor, alpha * 0.8);
+                    }
+                `,
+                transparent: true,
+                vertexColors: true
+            });
+
+            const particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+            waveParticles = particles;
+        }
+        
+        // --- Start Application ---
+        init();
+    </script>
+</body>
+</html>
