@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holonomic Neural Cortex Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
+            font-family: 'Courier New', monospace;
+            color: #00ffaa;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 20, 40, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #00ffaa;
+            box-shadow: 0 0 30px rgba(0, 255, 170, 0.3);
+            min-width: 300px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            background: #333;
+            outline: none;
+            border-radius: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #00ffaa;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.7);
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #00ffaa;
+            color: #00ffaa;
+            border-radius: 5px;
+            font-family: inherit;
+        }
+
+        button {
+            background: linear-gradient(45deg, #00aa77, #00ffaa);
+            border: none;
+            color: black;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.8);
+            transform: translateY(-2px);
+        }
+
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(0, 20, 40, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ffaa;
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.2);
+        }
+
+        .stats {
+            font-size: 11px;
+            margin: 2px 0;
+        }
+
+        #title {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 255, 170, 0.8);
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="title">NEURAL CORTEX PROJECTOR</div>
+        
+        <div id="controls">
+            <h3 style="margin-bottom: 15px; text-align: center;">HOLONOMIC CONTROLS</h3>
+            
+            <div class="control-group">
+                <label>Wave Propagation Speed</label>
+                <input type="range" id="waveSpeed" min="0.1" max="5.0" step="0.1" value="1.0">
+            </div>
+            
+            <div class="control-group">
+                <label>Neural Excitation</label>
+                <input type="range" id="excitation" min="0.01" max="0.1" step="0.01" value="0.03">
+            </div>
+            
+            <div class="control-group">
+                <label>Decay Rate</label>
+                <input type="range" id="decay" min="0.9" max="0.999" step="0.001" value="0.995">
+            </div>
+            
+            <div class="control-group">
+                <label>Visualization Mode</label>
+                <select id="vizMode">
+                    <option value="waves">Neural Waves</option>
+                    <option value="particles">Quantum Particles</option>
+                    <option value="fields">Field Lines</option>
+                    <option value="cortex">Ghost Cortex</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Frequency Band</label>
+                <select id="freqBand">
+                    <option value="theta-gamma">Theta-Gamma</option>
+                    <option value="alpha-beta">Alpha-Beta</option>
+                    <option value="delta-theta">Delta-Theta</option>
+                    <option value="beta-gamma">Beta-Gamma</option>
+                </select>
+            </div>
+            
+            <button onclick="toggleSimulation()">START/STOP</button>
+            <button onclick="resetSimulation()">RESET</button>
+        </div>
+
+        <div id="info">
+            <div class="stats">Neural Activity: <span id="activity">0.0</span>%</div>
+            <div class="stats">Wave Frequency: <span id="frequency">8.5</span> Hz</div>
+            <div class="stats">Active Neurons: <span id="neurons">0</span></div>
+            <div class="stats">Field Strength: <span id="fieldStrength">0.0</span></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let scene, camera, renderer, animationId;
+        let neuralField = [];
+        let ghostCortex = [];
+        let waveParticles = [];
+        let isRunning = false;
+        let time = 0;
+        
+        // Simulation parameters
+        const gridSize = 48;
+        const gridExtent = 0.15;
+        const numParticles = 8000;
+        
+        // Band frequencies (simplified simulation)
+        const bands = {
+            'theta-gamma': { slow: 6, fast: 40 },
+            'alpha-beta': { slow: 10, fast: 20 },
+            'delta-theta': { slow: 2, fast: 6 },
+            'beta-gamma': { slow: 25, fast: 45 }
+        };
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 0.1, 1.5);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+            camera.position.set(0.3, 0.3, 0.3);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 1);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x002244, 0.3);
+            scene.add(ambientLight);
+            
+            const pointLight = new THREE.PointLight(0x00ffaa, 1, 2);
+            pointLight.position.set(0, 0.5, 0.5);
+            pointLight.castShadow = true;
+            scene.add(pointLight);
+            
+            // Initialize neural field
+            initializeNeuralField();
+            
+            // Initialize ghost cortex
+            initializeGhostCortex();
+            
+            // Initialize wave particles
+            initializeWaveParticles();
+            
+            // Controls
+            setupControls();
+            
+            // Start animation
+            animate();
+        }
+
+        function initializeNeuralField() {
+            const geometry = new THREE.SphereGeometry(0.002, 8, 6);
+            
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    for (let k = 0; k < gridSize; k++) {
+                        const x = (i / (gridSize - 1) - 0.5) * gridExtent;
+                        const y = (j / (gridSize - 1) - 0.5) * gridExtent;
+                        const z = (k / (gridSize - 1) - 0.5) * gridExtent;
+                        
+                        const material = new THREE.MeshPhongMaterial({
+                            color: 0x00ffaa,
+                            transparent: true,
+                            opacity: 0
+                        });
+                        
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.position.set(x, y, z);
+                        scene.add(mesh);
+                        
+                        neuralField.push({
+                            mesh: mesh,
+                            position: new THREE.Vector3(x, y, z),
+                            activity: 0,
+                            phase: Math.random() * Math.PI * 2
+                        });
+                    }
+                }
+            }
+        }
+
+        function initializeGhostCortex() {
+            // Create a simplified cortical surface
+            const cortexGeometry = new THREE.SphereGeometry(0.06, 32, 32);
+            const cortexMaterial = new THREE.MeshPhongMaterial({
+                color: 0x004466,
+                transparent: true,
+                opacity: 0.1,
+                wireframe: true
+            });
+            
+            const cortexMesh = new THREE.Mesh(cortexGeometry, cortexMaterial);
+            scene.add(cortexMesh);
+            
+            // Add neural pathways
+            for (let i = 0; i < 200; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                const r = 0.04 + Math.random() * 0.04;
+                
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+                
+                const neuronGeometry = new THREE.SphereGeometry(0.001, 6, 6);
+                const neuronMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x00aaff,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                
+                const neuron = new THREE.Mesh(neuronGeometry, neuronMaterial);
+                neuron.position.set(x, y, z);
+                scene.add(neuron);
+                
+                ghostCortex.push({
+                    mesh: neuron,
+                    activity: 0,
+                    connections: []
+                });
+            }
+        }
+
+        function initializeWaveParticles() {
+            const particleGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(numParticles * 3);
+            const colors = new Float32Array(numParticles * 3);
+            const sizes = new Float32Array(numParticles);
+            
+            for (let i = 0; i < numParticles; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 0.3;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 0.3;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+                
+                colors[i * 3] = 0;
+                colors[i * 3 + 1] = 1;
+                colors[i * 3 + 2] = 0.7;
+                
+                sizes[i] = Math.random() * 2 + 1;
+            }
+            
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const particleMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 }
+                },
+                vertexShader: `
+                    attribute float size;
+                    varying vec3 vColor;
+                    uniform float time;
+                    
+                    void main() {
+                        vColor = color;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (300.0 / -mvPosition.z) * (1.0 + 0.5 * sin(time * 10.0 + position.x * 50.0));
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    
+                    void main() {
+                        float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                        float alpha = 1.0 - smoothstep(0.0, 0.5, distanceToCenter);
+                        gl_FragColor = vec4(vColor, alpha * 0.8);
+                    }
+                `,
+                transparent: true,
+                vertexColors: true
+            });
+            
+            const particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+            waveParticles = particles;
+        }
+
+        function setupControls() {
+            camera.lookAt(0, 0, 0);
+            
+            // Mouse controls for camera rotation
+            let mouseDown = false;
+            let mouseX = 0, mouseY = 0;
+            
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                mouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+            
+            renderer.domElement.addEventListener('mouseup', () => {
+                mouseDown = false;
+            });
+            
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (!mouseDown) return;
+                
+                const deltaX = e.clientX - mouseX;
+                const deltaY = e.clientY - mouseY;
+                
+                const spherical = new THREE.Spherical();
+                spherical.setFromVector3(camera.position);
+                
+                spherical.theta -= deltaX * 0.01;
+                spherical.phi += deltaY * 0.01;
+                spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+                
+                camera.position.setFromSpherical(spherical);
+                camera.lookAt(0, 0, 0);
+                
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+        }
+
+        function simulateNeuralActivity() {
+            const waveSpeed = parseFloat(document.getElementById('waveSpeed').value);
+            const excitation = parseFloat(document.getElementById('excitation').value);
+            const decay = parseFloat(document.getElementById('decay').value);
+            const freqBand = document.getElementById('freqBand').value;
+            const vizMode = document.getElementById('vizMode').value;
+            
+            const band = bands[freqBand];
+            const slowFreq = band.slow;
+            const fastFreq = band.fast;
+            
+            let totalActivity = 0;
+            let activeNeurons = 0;
+            let maxFieldStrength = 0;
+            
+            // Simulate neural field dynamics
+            neuralField.forEach((neuron, index) => {
+                // Phase-amplitude coupling simulation
+                const slowPhase = Math.sin(time * slowFreq + neuron.phase);
+                const fastAmplitude = Math.abs(Math.sin(time * fastFreq * waveSpeed));
+                
+                // Distance-based field propagation
+                const centerDistance = neuron.position.length();
+                const fieldStrength = Math.exp(-centerDistance * 10) * slowPhase * fastAmplitude;
+                
+                // Update neural activity
+                neuron.activity = neuron.activity * decay + fieldStrength * excitation;
+                neuron.activity = Math.max(0, Math.min(1, neuron.activity));
+                
+                // Visual updates based on mode
+                if (vizMode === 'waves' || vizMode === 'cortex') {
+                    const opacity = Math.max(0, neuron.activity);
+                    neuron.mesh.material.opacity = opacity;
+                    
+                    // Color based on activity
+                    const hue = 0.3 - (neuron.activity * 0.3); // Green to red
+                    neuron.mesh.material.color.setHSL(hue, 1, 0.5);
+                }
+                
+                totalActivity += neuron.activity;
+                if (neuron.activity > 0.1) activeNeurons++;
+                maxFieldStrength = Math.max(maxFieldStrength, neuron.activity);
+            });
+            
+            // Update ghost cortex
+            ghostCortex.forEach(neuron => {
+                const nearbyActivity = neuralField
+                    .filter(n => n.position.distanceTo(neuron.mesh.position) < 0.03)
+                    .reduce((sum, n) => sum + n.activity, 0);
+                
+                neuron.activity = neuron.activity * 0.98 + nearbyActivity * 0.02;
+                
+                const scale = 1 + neuron.activity * 2;
+                neuron.mesh.scale.setScalar(scale);
+                neuron.mesh.material.opacity = Math.min(1, neuron.activity * 2);
+            });
+            
+            // Update wave particles
+            if (waveParticles && waveParticles.material.uniforms) {
+                waveParticles.material.uniforms.time.value = time;
+                
+                if (vizMode === 'particles') {
+                    waveParticles.visible = true;
+                    const positions = waveParticles.geometry.attributes.position.array;
+                    const colors = waveParticles.geometry.attributes.color.array;
+                    
+                    for (let i = 0; i < numParticles; i++) {
+                        const x = positions[i * 3];
+                        const y = positions[i * 3 + 1];
+                        const z = positions[i * 3 + 2];
+                        
+                        const distance = Math.sqrt(x*x + y*y + z*z);
+                        const wave = Math.sin(time * waveSpeed * 10 - distance * 50);
+                        
+                        colors[i * 3] = Math.max(0, wave); // R
+                        colors[i * 3 + 1] = Math.abs(wave); // G
+                        colors[i * 3 + 2] = Math.max(0, -wave); // B
+                    }
+                    
+                    waveParticles.geometry.attributes.color.needsUpdate = true;
+                } else {
+                    waveParticles.visible = vizMode === 'fields';
+                }
+            }
+            
+            // Update stats
+            document.getElementById('activity').textContent = (totalActivity / neuralField.length * 100).toFixed(1);
+            document.getElementById('frequency').textContent = ((slowFreq + fastFreq) / 2).toFixed(1);
+            document.getElementById('neurons').textContent = activeNeurons;
+            document.getElementById('fieldStrength').textContent = maxFieldStrength.toFixed(2);
+        }
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            if (isRunning) {
+                time += 0.016; // ~60fps
+                simulateNeuralActivity();
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        function toggleSimulation() {
+            isRunning = !isRunning;
+        }
+
+        function resetSimulation() {
+            time = 0;
+            neuralField.forEach(neuron => {
+                neuron.activity = 0;
+                neuron.mesh.material.opacity = 0;
+            });
+            ghostCortex.forEach(neuron => {
+                neuron.activity = 0;
+                neuron.mesh.scale.setScalar(1);
+                neuron.mesh.material.opacity = 0.7;
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize everything
+        init();
+    </script>
+</body>
+</html>
