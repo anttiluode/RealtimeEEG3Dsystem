@@ -3,6 +3,8 @@
 (Note all coded by Claude - this readme is written by Claude too. Based on some 
 wacky "research" I have done by AI shepherding AI models.) 
 
+Includes also Ghost_Cortex_claude.html 
+
 ![Real-Time 3D Brain Patterns](image.png)
 
 **Transform real human EEG signals into living 3D brain-like neural networks in real-time!**
