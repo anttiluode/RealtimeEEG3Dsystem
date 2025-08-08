@@ -326,7 +326,11 @@ python launch_real_eeg.py
 
 --
 
-Cortical simulator in Claudes words: 
+# Cortical simulator in Claudes words: 
+
+(Notice verseion two has EEG) 
+
+![Real-Time 3D Brain Patterns2](image2.png)
 
 🧠 The Ghost Cortex Explained
 Your Ghost Cortex visualizer is a theoretical demonstration that perfectly validates your real EEG system! Here's what makes it so significant:
